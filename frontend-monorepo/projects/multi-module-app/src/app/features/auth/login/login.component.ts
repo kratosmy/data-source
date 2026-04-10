@@ -21,8 +21,14 @@ export class LoginComponent implements OnInit {
   private returnUrl = '/';
 
   ngOnInit(): void {
+    void this.refreshAuthState();
+  }
+
+  private async refreshAuthState(): Promise<void> {
     this.returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/';
     const routeError = this.route.snapshot.queryParamMap.get('error');
+
+    await this.authService.initialize();
 
     if (this.authService.isAuthenticated()) {
       void this.router.navigateByUrl(this.returnUrl);

@@ -11,7 +11,8 @@ describe('AuthGuard', () => {
   const unauthenticatedRedirect = { redirectedTo: '/auth/login' } as never;
 
   beforeEach(() => {
-    authServiceStub = jasmine.createSpyObj<AuthService>('AuthService', ['isAuthenticated', 'login']);
+    authServiceStub = jasmine.createSpyObj<AuthService>('AuthService', ['initialize', 'isAuthenticated', 'login']);
+    authServiceStub.initialize.and.resolveTo();
     routerSpy = jasmine.createSpyObj<Router>('Router', ['createUrlTree']);
     routerSpy.createUrlTree.and.returnValue(unauthenticatedRedirect);
 
@@ -26,19 +27,19 @@ describe('AuthGuard', () => {
     guard = TestBed.inject(AuthGuard);
   });
 
-  it('allows navigation for authenticated users', () => {
+  it('allows navigation for authenticated users', async () => {
     authServiceStub.isAuthenticated.and.returnValue(true);
 
-    const result = guard.canActivate({} as never, { url: '/workspace' } as never);
+    const result = await guard.canActivate({} as never, { url: '/workspace' } as never);
 
     expect(result).toBeTrue();
     expect(authServiceStub.login).not.toHaveBeenCalled();
   });
 
-  it('redirects unauthenticated users to the login route with returnUrl', () => {
+  it('redirects unauthenticated users to the login route with returnUrl', async () => {
     authServiceStub.isAuthenticated.and.returnValue(false);
 
-    const result = guard.canActivate({} as never, { url: '/workspace' } as never);
+    const result = await guard.canActivate({} as never, { url: '/workspace' } as never);
 
     expect(result).toBe(unauthenticatedRedirect);
     expect(authServiceStub.login).not.toHaveBeenCalled();

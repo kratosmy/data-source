@@ -10,7 +10,9 @@ export class AuthGuard implements CanActivate {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
-  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree {
+  async canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Promise<boolean | UrlTree> {
+    await this.authService.initialize();
+
     if (this.authService.isAuthenticated()) {
       return true;
     }
