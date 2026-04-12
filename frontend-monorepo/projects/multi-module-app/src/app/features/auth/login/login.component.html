@@ -1,5 +1,9 @@
 <section class="auth-page" aria-labelledby="login-title">
   <div class="auth-card">
+    <div class="auth-logo-placeholder">
+      <span aria-hidden="true">C</span>
+    </div>
+    
     <p class="eyebrow">Company Access</p>
     <h1 id="login-title">Sign in to continue</h1>
     <p class="summary">
@@ -8,7 +12,9 @@
     </p>
 
     @if (errorMessage(); as error) {
-      <p class="auth-error" role="alert">{{ error }}</p>
+      <div class="auth-error" role="alert">
+        {{ error }}
+      </div>
     }
 
     <button type="button" class="primary-action" [disabled]="isStartingLogin()" (click)="signIn()">

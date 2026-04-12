@@ -8,6 +8,7 @@ import { AuthService } from '../../../core/services/auth.service';
   selector: 'app-login',
   templateUrl: './login.component.html',
   imports: [CommonModule],
+  styleUrls: ['./login.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LoginComponent implements OnInit {
