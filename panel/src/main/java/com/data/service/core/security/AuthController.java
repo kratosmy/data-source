@@ -30,7 +30,10 @@ public class AuthController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication != null && authentication.isAuthenticated() && !(authentication instanceof AnonymousAuthenticationToken)) {
-            response.sendRedirect(normalizedReturnUrl);
+            response.sendRedirect(ReturnUrlSupport.toFrontendRedirectTarget(
+                    normalizedReturnUrl,
+                    securityProperties.getFrontendBaseUrl()
+            ));
             return;
         }
 

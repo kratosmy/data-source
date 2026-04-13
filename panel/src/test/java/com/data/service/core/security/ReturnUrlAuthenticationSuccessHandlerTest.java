@@ -13,7 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ReturnUrlAuthenticationSuccessHandlerTest {
 
-    private final ReturnUrlAuthenticationSuccessHandler successHandler = new ReturnUrlAuthenticationSuccessHandler();
+    private final PanelSecurityProperties securityProperties = new PanelSecurityProperties();
+    private final ReturnUrlAuthenticationSuccessHandler successHandler =
+            new ReturnUrlAuthenticationSuccessHandler(securityProperties);
 
     @Test
     void redirectsToStoredReturnUrlAndClearsSessionAttribute() throws ServletException, IOException {
@@ -43,5 +45,21 @@ class ReturnUrlAuthenticationSuccessHandlerTest {
         );
 
         assertEquals("/", response.getRedirectedUrl());
+    }
+
+    @Test
+    void prependsFrontendBaseUrlWhenConfigured() throws ServletException, IOException {
+        securityProperties.setFrontendBaseUrl("https://frontend.example.test");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.getSession(true).setAttribute(AuthController.RETURN_URL_SESSION_ATTRIBUTE, "/workspace");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        successHandler.onAuthenticationSuccess(
+                request,
+                response,
+                new TestingAuthenticationToken("user", "password", "ROLE_USER")
+        );
+
+        assertEquals("https://frontend.example.test/workspace", response.getRedirectedUrl());
     }
 }

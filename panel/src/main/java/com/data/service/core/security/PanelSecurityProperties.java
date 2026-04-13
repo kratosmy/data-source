@@ -12,6 +12,7 @@ import java.util.Optional;
 public class PanelSecurityProperties {
 
     private boolean h2ConsoleEnabled;
+    private String frontendBaseUrl;
     private final PingFederate pingFederate = new PingFederate();
     private final ClaimMapping claimMapping = new ClaimMapping();
     private final List<ApplicationClient> applicationClients = new ArrayList<>();
@@ -22,6 +23,14 @@ public class PanelSecurityProperties {
 
     public void setH2ConsoleEnabled(boolean h2ConsoleEnabled) {
         this.h2ConsoleEnabled = h2ConsoleEnabled;
+    }
+
+    public String getFrontendBaseUrl() {
+        return frontendBaseUrl;
+    }
+
+    public void setFrontendBaseUrl(String frontendBaseUrl) {
+        this.frontendBaseUrl = frontendBaseUrl;
     }
 
     public PingFederate getPingFederate() {

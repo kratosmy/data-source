@@ -17,6 +17,18 @@ final class ReturnUrlSupport {
         return returnUrl;
     }
 
+    static String toFrontendRedirectTarget(String normalizedReturnUrl, String frontendBaseUrl) {
+        String safeReturnUrl = normalize(normalizedReturnUrl);
+        if (frontendBaseUrl == null || frontendBaseUrl.isBlank()) {
+            return safeReturnUrl;
+        }
+
+        String normalizedBaseUrl = frontendBaseUrl.endsWith("/")
+                ? frontendBaseUrl.substring(0, frontendBaseUrl.length() - 1)
+                : frontendBaseUrl;
+        return normalizedBaseUrl + safeReturnUrl;
+    }
+
     static String resolveAndClear(HttpServletRequest request) {
         if (request.getSession(false) == null) {
             return DEFAULT_RETURN_URL;

@@ -13,7 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ReturnUrlAuthenticationFailureHandlerTest {
 
-    private final ReturnUrlAuthenticationFailureHandler failureHandler = new ReturnUrlAuthenticationFailureHandler();
+    private final PanelSecurityProperties securityProperties = new PanelSecurityProperties();
+    private final ReturnUrlAuthenticationFailureHandler failureHandler =
+            new ReturnUrlAuthenticationFailureHandler(securityProperties);
 
     @Test
     void redirectsBackToFrontendLoginWithErrorAndStoredReturnUrl() throws ServletException, IOException {
@@ -29,6 +31,25 @@ class ReturnUrlAuthenticationFailureHandlerTest {
 
         assertEquals(
                 "/auth/login?returnUrl=/workspace&error=Sign-in%20failed.%20Please%20try%20again.",
+                response.getRedirectedUrl()
+        );
+    }
+
+    @Test
+    void redirectsToFrontendDomainWhenConfigured() throws ServletException, IOException {
+        securityProperties.setFrontendBaseUrl("https://frontend.example.test/");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.getSession(true).setAttribute(AuthController.RETURN_URL_SESSION_ATTRIBUTE, "/workspace");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        failureHandler.onAuthenticationFailure(
+                request,
+                response,
+                new OAuth2AuthenticationException(new OAuth2Error("access_denied"))
+        );
+
+        assertEquals(
+                "https://frontend.example.test/auth/login?returnUrl=/workspace&error=Sign-in%20failed.%20Please%20try%20again.",
                 response.getRedirectedUrl()
         );
     }
