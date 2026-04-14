@@ -54,7 +54,8 @@ public class SecurityConfiguration {
                                                        ReturnUrlAuthenticationSuccessHandler successHandler,
                                                        ReturnUrlAuthenticationFailureHandler failureHandler,
                                                        LogoutSuccessHandler logoutSuccessHandler,
-                                                       OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService) throws Exception {
+                                                       OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService,
+                                                       CookieOAuth2AuthorizationRequestRepository authorizationRequestRepository) throws Exception {
         http.securityMatcher("/api/user/**", "/api/me", "/api/auth/**", "/oauth2/**", "/login/oauth2/**", "/h2-console/**")
                 .authorizeHttpRequests(authorize -> {
                     authorize.requestMatchers("/api/auth/login", "/api/auth/logout", "/oauth2/**", "/login/oauth2/**").permitAll();
@@ -64,6 +65,8 @@ public class SecurityConfiguration {
                     authorize.anyRequest().authenticated();
                 })
                 .oauth2Login(oauth2Login -> oauth2Login
+                        .authorizationEndpoint(authorizationEndpoint -> authorizationEndpoint
+                                .authorizationRequestRepository(authorizationRequestRepository))
                         .userInfoEndpoint(userInfo -> userInfo.userService(oauth2UserService))
                         .successHandler(successHandler)
                         .failureHandler(failureHandler))
