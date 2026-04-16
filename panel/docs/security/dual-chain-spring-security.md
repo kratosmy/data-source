@@ -29,6 +29,8 @@ This keeps browser user traffic working without a client certificate while still
 - Use `server.servlet.session.cookie.same-site=lax`, `http-only=true`, and `secure=true` in production so the OIDC authorization-code callback can bring the session cookie back.
 - When the backend has multiple replicas, use sticky sessions or a shared session store; otherwise the authorization request can be created on one pod and the callback can land on another, which also surfaces as `authorization_request_not_found`.
 
+For step-by-step validation of the browser login flow, see `panel/docs/security/oidc-verification.md`.
+
 ## When to move to a dedicated listener
 
 Move Grafana traffic to a dedicated listener, port, or ingress when any of these become true:
