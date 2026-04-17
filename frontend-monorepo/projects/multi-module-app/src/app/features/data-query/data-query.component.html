@@ -191,8 +191,7 @@
       </mat-menu>
 
       <ag-grid-angular
-        class="ag-theme-material"
-        style="width: 100%; flex: 1; min-height: 300px"
+        class="ag-theme-material result-grid"
         [rowData]="queryTabs[selectedTabIndex].dataSource"
         [columnDefs]="queryTabs[selectedTabIndex].colDefs || colDefs"
         [defaultColDef]="defaultColDef"
