@@ -1,10 +1,6 @@
 #!/bin/sh
 set -eu
 
-json_escape() {
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
 validate_origin() {
   value="$1"
   name="$2"
@@ -25,19 +21,68 @@ validate_origin() {
   esac
 }
 
-parse_origin() {
-  origin="$1"
-  scheme="${origin%%://*}"
-  authority="${origin#*://}"
-  authority="${authority%%/*}"
+validate_public_origin() {
+  value="$1"
+  name="$2"
 
-  case "$authority" in
+  case "$value" in
+    http://*|https://*)
+      echo >&2 "$name must not include http:// or https://"
+      exit 1
+      ;;
+  esac
+
+  case "$value" in
+    *"/"*|*" "*|*";"*|*"{"*|*"}"*)
+      echo >&2 "$name must be host or host:port without a path and without nginx-breaking characters."
+      exit 1
+      ;;
+  esac
+
+  case "$value" in
     *:*)
-      host="${authority%:*}"
-      port="${authority##*:}"
+      host="${value%:*}"
+      port="${value##*:}"
+      if [ -z "$host" ] || [ -z "$port" ]; then
+        echo >&2 "$name must be host or host:port"
+        exit 1
+      fi
+
+      case "$port" in
+        *[!0-9]*)
+          echo >&2 "$name port must be numeric"
+          exit 1
+          ;;
+      esac
+      ;;
+    "")
+      echo >&2 "$name must not be empty"
+      exit 1
+      ;;
+  esac
+}
+
+validate_scheme() {
+  case "$1" in
+    http|https) ;;
+    *)
+      echo >&2 "PUBLIC_SCHEME must be http or https"
+      exit 1
+      ;;
+  esac
+}
+
+parse_public_origin() {
+  origin="$1"
+  scheme="$2"
+
+  case "$origin" in
+    *:*)
+      host="${origin%:*}"
+      port="${origin##*:}"
       ;;
     *)
-      host="$authority"
+      host="$origin"
       if [ "$scheme" = "https" ]; then
         port=443
       else
@@ -46,48 +91,28 @@ parse_origin() {
       ;;
   esac
 
-  printf '%s\n%s\n%s\n' "$scheme" "$host" "$port"
-}
-
-validate_boolean() {
-  case "$1" in
-    true|false) ;;
-    *)
-      echo >&2 "Boolean value must be true or false"
-      exit 1
-      ;;
-  esac
+  printf '%s\n%s\n' "$host" "$port"
 }
 
 if [ "$#" -eq 0 ] || [ "$1" = "nginx" ]; then
   : "${BACKEND_ORIGIN:?BACKEND_ORIGIN must be set, e.g. https://api.example.com}"
-  : "${PUBLIC_ORIGIN:?PUBLIC_ORIGIN must be set, e.g. https://app.example.com}"
-  : "${AUTH_ISSUER:?AUTH_ISSUER must be set}"
-  : "${AUTH_CLIENT_ID:?AUTH_CLIENT_ID must be set}"
+  : "${PUBLIC_ORIGIN:?PUBLIC_ORIGIN must be set, e.g. app.example.com or localhost:8080}"
 
   PUBLIC_ORIGIN="${PUBLIC_ORIGIN%/}"
   BACKEND_ORIGIN="${BACKEND_ORIGIN%/}"
+  PUBLIC_SCHEME="${PUBLIC_SCHEME:-https}"
 
   export PUBLIC_ORIGIN
   export BACKEND_ORIGIN
-  export AUTH_ISSUER
-  export AUTH_CLIENT_ID
-  export AUTH_DISCOVERY_URL="${AUTH_DISCOVERY_URL:-}"
-  export AUTH_SCOPE="${AUTH_SCOPE:-openid profile email groups entitlements}"
-  export AUTH_REDIRECT_URI="${AUTH_REDIRECT_URI:-$PUBLIC_ORIGIN/auth/callback}"
-  export AUTH_POST_LOGOUT_REDIRECT_URI="${AUTH_POST_LOGOUT_REDIRECT_URI:-$PUBLIC_ORIGIN/auth/login}"
-  export AUTH_USER_CONTEXT_ENDPOINT="${AUTH_USER_CONTEXT_ENDPOINT:-/api/me}"
-  export AUTH_REQUIRE_USER_CONTEXT="${AUTH_REQUIRE_USER_CONTEXT:-false}"
+  export PUBLIC_SCHEME
 
   validate_origin "$BACKEND_ORIGIN" "BACKEND_ORIGIN"
-  validate_origin "$PUBLIC_ORIGIN" "PUBLIC_ORIGIN"
-  validate_boolean "$AUTH_REQUIRE_USER_CONTEXT"
+  validate_public_origin "$PUBLIC_ORIGIN" "PUBLIC_ORIGIN"
+  validate_scheme "$PUBLIC_SCHEME"
 
-  ORIGIN_PARTS="$(parse_origin "$PUBLIC_ORIGIN")"
-  PUBLIC_SCHEME="$(printf '%s\n' "$ORIGIN_PARTS" | sed -n '1p')"
-  PUBLIC_HOST="$(printf '%s\n' "$ORIGIN_PARTS" | sed -n '2p')"
-  PUBLIC_PORT="$(printf '%s\n' "$ORIGIN_PARTS" | sed -n '3p')"
-  export PUBLIC_SCHEME
+  ORIGIN_PARTS="$(parse_public_origin "$PUBLIC_ORIGIN" "$PUBLIC_SCHEME")"
+  PUBLIC_HOST="$(printf '%s\n' "$ORIGIN_PARTS" | sed -n '1p')"
+  PUBLIC_PORT="$(printf '%s\n' "$ORIGIN_PARTS" | sed -n '2p')"
   export PUBLIC_HOST
   export PUBLIC_PORT
 
@@ -99,14 +124,6 @@ if [ "$#" -eq 0 ] || [ "$1" = "nginx" ]; then
     /tmp/nginx-uwsgi \
     /tmp/nginx-scgi
 
-  AUTH_ISSUER_JSON="$(json_escape "$AUTH_ISSUER")"
-  AUTH_CLIENT_ID_JSON="$(json_escape "$AUTH_CLIENT_ID")"
-  AUTH_DISCOVERY_URL_JSON="$(json_escape "$AUTH_DISCOVERY_URL")"
-  AUTH_SCOPE_JSON="$(json_escape "$AUTH_SCOPE")"
-  AUTH_REDIRECT_URI_JSON="$(json_escape "$AUTH_REDIRECT_URI")"
-  AUTH_POST_LOGOUT_REDIRECT_URI_JSON="$(json_escape "$AUTH_POST_LOGOUT_REDIRECT_URI")"
-  AUTH_USER_CONTEXT_ENDPOINT_JSON="$(json_escape "$AUTH_USER_CONTEXT_ENDPOINT")"
-
   cat > /tmp/nginx/conf.d/default.conf <<EOF
 server {
   listen 8080;
@@ -114,12 +131,6 @@ server {
 
   root /usr/share/nginx/html;
   index index.html;
-
-  location = /auth-config.json {
-    alias /tmp/auth-config.json;
-    default_type application/json;
-    add_header Cache-Control "no-store";
-  }
 
   location / {
     try_files \$uri \$uri/ /index.html;
@@ -187,51 +198,6 @@ server {
 }
 EOF
 
-  cat > /tmp/auth-config.json <<EOF
-{
-  "issuer": "$AUTH_ISSUER_JSON",
-  "discoveryUrl": "$AUTH_DISCOVERY_URL_JSON",
-  "clientId": "$AUTH_CLIENT_ID_JSON",
-  "redirectUri": "$AUTH_REDIRECT_URI_JSON",
-  "postLogoutRedirectUri": "$AUTH_POST_LOGOUT_REDIRECT_URI_JSON",
-  "scope": "$AUTH_SCOPE_JSON",
-  "claimsSource": "both",
-  "groupClaim": [
-    "groups",
-    "group"
-  ],
-  "entitlementClaim": [
-    "entitlements",
-    "entitlement"
-  ],
-  "permissionClaim": [
-    "permissions",
-    "permission",
-    "authorities"
-  ],
-  "usernameClaim": [
-    "preferred_username",
-    "username",
-    "sub"
-  ],
-  "displayNameClaim": [
-    "name",
-    "preferred_username"
-  ],
-  "emailClaim": [
-    "email"
-  ],
-  "idClaim": [
-    "sub"
-  ],
-  "userContextEndpoint": "$AUTH_USER_CONTEXT_ENDPOINT_JSON",
-  "requireUserContext": $AUTH_REQUIRE_USER_CONTEXT,
-  "storage": "localStorage",
-  "defaultReturnUrl": "/",
-  "clockSkewInSeconds": 60
-}
-EOF
-
   echo "Rendered Nginx runtime config under /tmp."
   if ! nginx -t -c /etc/nginx/nginx.conf; then
     echo >&2 "--- nginx debug ---"
@@ -240,8 +206,6 @@ EOF
     sed -n '1,200p' /etc/nginx/nginx.conf >&2
     echo >&2 "--- /tmp/nginx/conf.d/default.conf ---"
     sed -n '1,200p' /tmp/nginx/conf.d/default.conf >&2
-    echo >&2 "--- /tmp/auth-config.json ---"
-    sed -n '1,200p' /tmp/auth-config.json >&2
     exit 1
   fi
 fi

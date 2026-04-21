@@ -44,10 +44,9 @@ The container serves the Angular SPA with Nginx and proxies `/api/*` requests to
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -e PUBLIC_ORIGIN=http://localhost:8080 \
+  -e PUBLIC_ORIGIN=localhost:8080 \
+  -e PUBLIC_SCHEME=http \
   -e BACKEND_ORIGIN=https://api.example.com \
-  -e AUTH_ISSUER=https://pingfederate.example.com \
-  -e AUTH_CLIENT_ID=replace-with-client-id \
   multi-module-app
 ```
 
@@ -55,17 +54,11 @@ The container now runs as the non-root `nginx` user, listens on port `8080`, and
 
 ### Supported environment variables
 
-- `PUBLIC_ORIGIN`: public origin of the frontend, used to build default OAuth redirect URLs.
+- `PUBLIC_ORIGIN`: public frontend host with optional port, for example `app.example.com` or `localhost:8080`. Do not include `http://` or `https://`.
+- `PUBLIC_SCHEME` (optional): public frontend scheme used for `X-Forwarded-Proto`. Defaults to `https`.
 - `BACKEND_ORIGIN`: backend origin that receives proxied `/api/*` requests.
-- The nginx container also forwards `PUBLIC_ORIGIN` to the backend as `X-Forwarded-*` headers so Spring Security can generate `/login/oauth2/code/*` callbacks on the public frontend origin instead of the internal backend host.
-- `AUTH_ISSUER`: OAuth/OpenID issuer URL.
-- `AUTH_CLIENT_ID`: OAuth/OpenID client ID.
-- `AUTH_DISCOVERY_URL` (optional): explicit discovery document URL.
-- `AUTH_SCOPE` (optional): space-delimited OAuth scopes. Defaults to `openid profile email groups entitlements`.
-- `AUTH_REDIRECT_URI` (optional): overrides the default `${PUBLIC_ORIGIN}/auth/callback`.
-- `AUTH_POST_LOGOUT_REDIRECT_URI` (optional): overrides the default `${PUBLIC_ORIGIN}/auth/login`.
-- `AUTH_USER_CONTEXT_ENDPOINT` (optional): backend endpoint used to resolve frontend RBAC. Defaults to `/api/me`.
-- `AUTH_REQUIRE_USER_CONTEXT` (optional): `true` to fail sign-in/session restore when the backend user context cannot be loaded. Defaults to `false`.
+- The nginx container also forwards `PUBLIC_ORIGIN` and `PUBLIC_SCHEME` to the backend as `X-Forwarded-*` headers so Spring Security can generate `/login/oauth2/code/*` callbacks on the public frontend origin instead of the internal backend host.
+- Frontend auth paths are served from the built asset at `projects/multi-module-app/public/auth-config.json`, not from container environment variables.
 
 If the backend runs with more than one replica in Kubernetes, the login-start request and the `/login/oauth2/code/*` callback must resolve to the same HTTP session. Use sticky sessions at the ingress/service layer or back the session with a shared store such as Spring Session.
 
