@@ -1,6 +1,6 @@
 import { ColDef } from 'ag-grid-community';
 
-export type FilterFieldType = 'string' | 'number' | 'date' | 'time';
+export type FilterFieldType = 'string' | 'number' | 'date' | 'time' | 'checkbox';
 
 import { ModuleDefinition } from '../models/auth.models';
 

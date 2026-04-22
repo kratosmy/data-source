@@ -71,7 +71,9 @@
             <div class="fields-grid">
               @for (field of group.fields; track field.name) {
                 <div class="field-shell" [attr.data-span]="getFieldGridSpan(field)">
-                  <label class="field-above-label">{{ field.label }}</label>
+                  @if (field.type !== 'checkbox') {
+                    <label class="field-above-label">{{ field.label }}</label>
+                  }
 
                   @switch (field.type) {
                     @case ('date') {
@@ -124,6 +126,11 @@
                           <mat-timepicker #endTimePicker interval="30m"></mat-timepicker>
                         </mat-form-field>
                       </div>
+                    }
+                    @case ('checkbox') {
+                      <mat-checkbox [formControlName]="field.name" [attr.aria-label]="field.label">
+                        {{ field.label }}
+                      </mat-checkbox>
                     }
                     @default {
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">

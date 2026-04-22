@@ -20,12 +20,13 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FilterField } from '../../../core/config/data-query.config';
 
 export interface QueryCondition {
   field: string;
   operator: string;
-  value: string;
+  value: string | boolean;
 }
 
 interface FieldGroupViewModel {
@@ -50,7 +51,8 @@ interface FieldGroupViewModel {
     MatDatepickerModule,
     MatNativeDateModule,
     MatTimepickerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatCheckboxModule
   ]
 })
 export class QueryBuilderComponent implements OnInit, OnChanges {
@@ -83,12 +85,14 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       simpleSearch: new FormControl('')
     };
 
-    const advancedControls: Record<string, FormControl<string | Date | null>> = {};
+    const advancedControls: Record<string, FormControl<string | Date | boolean | null>> = {};
     if (this.availableFields) {
       this.availableFields.forEach(field => {
         if (this.isRangeField(field)) {
           advancedControls[`${field.name}_start`] = new FormControl(null);
           advancedControls[`${field.name}_end`] = new FormControl(null);
+        } else if (field.type === 'checkbox') {
+          advancedControls[field.name] = new FormControl(false);
         } else {
           advancedControls[field.name] = new FormControl('');
         }
@@ -150,7 +154,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
 
   onAdvancedSubmit() {
     const conditions: QueryCondition[] = [];
-    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | Date | null>;
+    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | Date | boolean | null>;
 
     this.availableFields.forEach(field => {
       if (field.type === 'date') {
@@ -166,14 +170,18 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
         const start = advancedValues[`${field.name}_start`];
         const end = advancedValues[`${field.name}_end`];
         if (start) {
-          conditions.push({ field: field.name, operator: '>=', value: this.formatTime(start) });
+          conditions.push({ field: field.name, operator: '>=', value: this.formatTime(start as Date | string) });
         }
         if (end) {
-          conditions.push({ field: field.name, operator: '<=', value: this.formatTime(end) });
+          conditions.push({ field: field.name, operator: '<=', value: this.formatTime(end as Date | string) });
         }
       } else {
         const val = advancedValues[field.name];
-        if (typeof val === 'string' && val.trim() !== '') {
+        if (field.type === 'checkbox') {
+          if (val === true) {
+            conditions.push({ field: field.name, operator: '=', value: true });
+          }
+        } else if (typeof val === 'string' && val.trim() !== '') {
           conditions.push({ field: field.name, operator: 'LIKE', value: val.trim() });
         }
       }
@@ -224,7 +232,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       return 0;
     }
 
-    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | Date | null>;
+    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | Date | boolean | null>;
 
     return this.availableFields.reduce((count, field) => {
       if (this.isRangeField(field)) {
@@ -233,6 +241,10 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       }
 
       const value = advancedValues[field.name];
+      if (field.type === 'checkbox') {
+        return value === true ? count + 1 : count;
+      }
+
       return typeof value === 'string' && value.trim() !== '' ? count + 1 : count;
     }, 0);
   }

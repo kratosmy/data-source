@@ -68,4 +68,15 @@ describe('QueryBuilderComponent', () => {
     ]);
     expect(component.isAdvancedOpen).toBeFalse();
   });
+
+  it('treats checked checkbox fields as equals filters', () => {
+    component.availableFields = [{ name: 'isActive', label: 'Active Only', type: 'checkbox' }];
+    component.initForm();
+    spyOn(component.querySubmit, 'emit');
+    component.advancedForm.patchValue({ isActive: true });
+
+    component.applyAdvancedFilters();
+
+    expect(component.querySubmit.emit).toHaveBeenCalledWith([{ field: 'isActive', operator: '=', value: true }]);
+  });
 });
