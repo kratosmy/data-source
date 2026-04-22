@@ -79,4 +79,31 @@ describe('QueryBuilderComponent', () => {
 
     expect(component.querySubmit.emit).toHaveBeenCalledWith([{ field: 'isActive', operator: '=', value: true }]);
   });
+
+  it('maps checkbox options to string query conditions', () => {
+    component.availableFields = [
+      {
+        name: 'msgdirection',
+        label: 'Message Direction',
+        type: 'checkbox',
+        checkboxOptions: [
+          { label: 'IN', value: 'in' },
+          { label: 'OUT', value: 'out' }
+        ]
+      }
+    ];
+    component.initForm();
+    const emitSpy = spyOn(component.querySubmit, 'emit');
+
+    component.onCheckboxOptionToggle(component.availableFields[0], 'in', true);
+    component.applyAdvancedFilters();
+    expect(emitSpy).toHaveBeenCalledWith([{ field: 'msgdirection', operator: '=', value: 'in' }]);
+
+    emitSpy.calls.reset();
+    component.clearAdvancedFilters();
+    component.onCheckboxOptionToggle(component.availableFields[0], 'in', true);
+    component.onCheckboxOptionToggle(component.availableFields[0], 'out', true);
+    component.applyAdvancedFilters();
+    expect(emitSpy).toHaveBeenCalledWith([{ field: 'msgdirection', operator: 'IN', value: 'in,out' }]);
+  });
 });

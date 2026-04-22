@@ -128,9 +128,24 @@
                       </div>
                     }
                     @case ('checkbox') {
-                      <mat-checkbox [formControlName]="field.name" [attr.aria-label]="field.label">
-                        {{ field.label }}
-                      </mat-checkbox>
+                      @if ((field.checkboxOptions?.length ?? 0) > 0) {
+                        <label class="field-above-label">{{ field.label }}</label>
+                        <div class="checkbox-option-group" [attr.aria-label]="field.label">
+                          @for (option of field.checkboxOptions ?? []; track option.value) {
+                            <mat-checkbox
+                              [checked]="isCheckboxOptionSelected(field, option.value)"
+                              [attr.aria-label]="field.label + ' ' + option.label"
+                              (change)="onCheckboxOptionToggle(field, option.value, $event.checked)"
+                            >
+                              {{ option.label }}
+                            </mat-checkbox>
+                          }
+                        </div>
+                      } @else {
+                        <mat-checkbox [formControlName]="field.name" [attr.aria-label]="field.label">
+                          {{ field.label }}
+                        </mat-checkbox>
+                      }
                     }
                     @default {
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">

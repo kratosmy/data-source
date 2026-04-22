@@ -85,14 +85,18 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       simpleSearch: new FormControl('')
     };
 
-    const advancedControls: Record<string, FormControl<string | Date | boolean | null>> = {};
+    const advancedControls: Record<string, FormControl<string | string[] | Date | boolean | null>> = {};
     if (this.availableFields) {
       this.availableFields.forEach(field => {
         if (this.isRangeField(field)) {
           advancedControls[`${field.name}_start`] = new FormControl(null);
           advancedControls[`${field.name}_end`] = new FormControl(null);
         } else if (field.type === 'checkbox') {
-          advancedControls[field.name] = new FormControl(false);
+          if ((field.checkboxOptions?.length ?? 0) > 0) {
+            advancedControls[field.name] = new FormControl<string[]>([]);
+          } else {
+            advancedControls[field.name] = new FormControl(false);
+          }
         } else {
           advancedControls[field.name] = new FormControl('');
         }
@@ -154,7 +158,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
 
   onAdvancedSubmit() {
     const conditions: QueryCondition[] = [];
-    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | Date | boolean | null>;
+    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | string[] | Date | boolean | null>;
 
     this.availableFields.forEach(field => {
       if (field.type === 'date') {
@@ -178,7 +182,14 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       } else {
         const val = advancedValues[field.name];
         if (field.type === 'checkbox') {
-          if (val === true) {
+          if ((field.checkboxOptions?.length ?? 0) > 0) {
+            const selectedValues = Array.isArray(val) ? val.map(item => item.trim()).filter(item => item !== '') : [];
+            if (selectedValues.length === 1) {
+              conditions.push({ field: field.name, operator: '=', value: selectedValues[0] });
+            } else if (selectedValues.length > 1) {
+              conditions.push({ field: field.name, operator: 'IN', value: selectedValues.join(',') });
+            }
+          } else if (val === true) {
             conditions.push({ field: field.name, operator: '=', value: true });
           }
         } else if (typeof val === 'string' && val.trim() !== '') {
@@ -232,7 +243,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       return 0;
     }
 
-    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | Date | boolean | null>;
+    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | string[] | Date | boolean | null>;
 
     return this.availableFields.reduce((count, field) => {
       if (this.isRangeField(field)) {
@@ -242,6 +253,9 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
 
       const value = advancedValues[field.name];
       if (field.type === 'checkbox') {
+        if ((field.checkboxOptions?.length ?? 0) > 0) {
+          return Array.isArray(value) && value.length > 0 ? count + 1 : count;
+        }
         return value === true ? count + 1 : count;
       }
 
@@ -278,6 +292,28 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       label,
       fields
     }));
+  }
+
+  onCheckboxOptionToggle(field: FilterField, optionValue: string, checked: boolean): void {
+    const control = this.advancedForm.get(field.name);
+    if (!control) {
+      return;
+    }
+
+    const currentValues = Array.isArray(control.value) ? control.value : [];
+    if (checked) {
+      if (!currentValues.includes(optionValue)) {
+        control.setValue([...currentValues, optionValue]);
+      }
+      return;
+    }
+
+    control.setValue(currentValues.filter(value => value !== optionValue));
+  }
+
+  isCheckboxOptionSelected(field: FilterField, optionValue: string): boolean {
+    const controlValue = this.advancedForm.get(field.name)?.value;
+    return Array.isArray(controlValue) && controlValue.includes(optionValue);
   }
 
   private parseTimeParts(value: string): [number, number, number] | null {

@@ -8,6 +8,7 @@ export interface FilterField {
   name: string;
   label: string;
   type: FilterFieldType;
+  checkboxOptions?: Array<{ label: string; value: string }>;
   group?: string;
   gridSpan?: 3 | 4 | 6 | 12;
   placeholder?: string;
