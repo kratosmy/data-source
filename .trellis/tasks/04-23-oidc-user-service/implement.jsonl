@@ -1,0 +1,9 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/type-safety.md", "reason": "Typed security properties and user models"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Preserve 401 and redirect auth behavior"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Safe OIDC diagnostics"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Security and profile regression coverage"}
+{"file": "panel/src/main/java/com/data/service/core/security/LoggingAuthorizationRequestRepository.java", "reason": "Existing OIDC request logging pattern"}
+{"file": "panel/src/main/java/com/data/service/core/security/ReturnUrlAuthenticationFailureHandler.java", "reason": "Existing auth failure flow and safe logging"}
+{"file": "panel/src/test/java/com/data/service/core/security/SecurityIntegrationTest.java", "reason": "Existing security-chain regression tests"}
