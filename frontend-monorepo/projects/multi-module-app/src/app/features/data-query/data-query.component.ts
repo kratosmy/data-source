@@ -144,6 +144,7 @@ export class DataQueryComponent implements OnInit {
     sortable: false
   };
   allData: any[] = [];
+  dynamicDropdownOptions: Record<string, Array<{ label: string; value: string }>> = {};
   queryTabs: QueryTab[] = [];
   selectedTabIndex = 0;
   tabCounter = 1;
@@ -186,6 +187,7 @@ export class DataQueryComponent implements OnInit {
     this.http.get<any[]>(this.config.apiEndpoint).subscribe({
       next: data => {
         this.allData = data || [];
+        this.dynamicDropdownOptions = this.buildDynamicDropdownOptions(this.allData);
         setTimeout(() => {
           this.queryTabs[0].title = 'All Data';
           this.queryTabs[0].dataSource = this.allData;
@@ -198,6 +200,7 @@ export class DataQueryComponent implements OnInit {
       },
       error: err => {
         console.error('Failed to load initial data', err);
+        this.dynamicDropdownOptions = {};
         setTimeout(() => {
           this.queryTabs[0].title = 'Error Loading Data';
           this.syncExportContext();
@@ -924,5 +927,35 @@ export class DataQueryComponent implements OnInit {
       reader.onerror = () => reject(reader.error || new Error('Failed to convert blob to base64.'));
       reader.readAsDataURL(blob);
     });
+  }
+
+  private buildDynamicDropdownOptions(data: any[]): Record<string, Array<{ label: string; value: string }>> {
+    const optionsByField: Record<string, Array<{ label: string; value: string }>> = {};
+    const dropdownFields = this.config.filterFields.filter(field => field.type === 'dropdown');
+
+    dropdownFields.forEach(field => {
+      if ((field.dropdownOptions?.length ?? 0) > 0) {
+        return;
+      }
+
+      const optionValues = new Set<string>();
+      data.forEach(row => {
+        const rawValue = row?.[field.name];
+        if (rawValue == null) {
+          return;
+        }
+
+        const optionValue = String(rawValue).trim();
+        if (optionValue) {
+          optionValues.add(optionValue);
+        }
+      });
+
+      optionsByField[field.name] = Array.from(optionValues)
+        .sort((a, b) => a.localeCompare(b))
+        .map(value => ({ label: value, value }));
+    });
+
+    return optionsByField;
   }
 }

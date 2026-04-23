@@ -132,4 +132,17 @@ describe('QueryBuilderComponent', () => {
     component.applyAdvancedFilters();
     expect(emitSpy).toHaveBeenCalledWith([{ field: 'status', operator: 'IN', value: 'open,closed' }]);
   });
+
+  it('uses dynamic dropdown options when provided', () => {
+    component.availableFields = [{ name: 'status', label: 'Status', type: 'dropdown' }];
+    component.dynamicDropdownOptions = {
+      status: [
+        { label: 'Open', value: 'open' },
+        { label: 'Closed', value: 'closed' }
+      ]
+    };
+    component.initForm();
+
+    expect(component.getDropdownOptions(component.availableFields[0])).toEqual(component.dynamicDropdownOptions['status']);
+  });
 });

@@ -9,6 +9,7 @@
     <app-query-builder
       *ngIf="config && config.filterFields"
       [availableFields]="config.filterFields"
+      [dynamicDropdownOptions]="dynamicDropdownOptions"
       (querySubmit)="onQuerySubmit($event)"
     >
     </app-query-builder>

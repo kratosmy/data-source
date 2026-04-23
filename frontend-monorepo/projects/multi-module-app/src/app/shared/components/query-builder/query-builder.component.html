@@ -150,7 +150,7 @@
                     @case ('dropdown') {
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">
                         <mat-select [formControlName]="field.name" multiple [attr.aria-label]="field.label" [placeholder]="field.label">
-                          @for (option of field.dropdownOptions ?? []; track option.value) {
+                          @for (option of getDropdownOptions(field); track option.value) {
                             <mat-option [value]="option.value">
                               <mat-checkbox [checked]="isCheckboxOptionSelected(field, option.value)">
                                 {{ option.label }}
