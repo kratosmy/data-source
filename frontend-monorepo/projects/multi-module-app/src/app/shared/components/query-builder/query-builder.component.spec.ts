@@ -1,7 +1,7 @@
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { FormBuilder } from '@angular/forms';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { ComponentFixture, TestBed, fakeAsync, flush } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
 
 import { QueryBuilderComponent } from './query-builder.component';
 
@@ -146,6 +146,53 @@ describe('QueryBuilderComponent', () => {
     component.applyAdvancedFilters();
     expect(emitSpy).toHaveBeenCalledWith([{ field: 'status', operator: 'IN', value: 'open,closed' }]);
   });
+
+  it('filters dropdown autocomplete options by label or value', () => {
+    const field = component.availableFields[0];
+
+    component.advancedForm.get(component.getDropdownSearchControlName(field))?.setValue('for');
+
+    expect(component.getFilteredDropdownOptions(field)).toEqual([{ label: 'Forward', value: 'Forward' }]);
+  });
+
+  it('toggles dropdown autocomplete selections without hiding selected options', () => {
+    const field = component.availableFields[0];
+
+    component.advancedForm.get(component.getDropdownSearchControlName(field))?.setValue('spo');
+    component.onDropdownOptionSelected(field, 'Spot');
+
+    expect(component.advancedForm.get(field.name)?.value).toEqual(['Spot']);
+    expect(component.advancedForm.get(component.getDropdownSearchControlName(field))?.value).toBe('spo');
+    expect(component.getFilteredDropdownOptions(field)).toEqual([{ label: 'Spot', value: 'Spot' }]);
+
+    component.onDropdownOptionSelected(field, 'Spot');
+
+    expect(component.advancedForm.get(field.name)?.value).toEqual([]);
+  });
+
+  it('toggles dropdown selections through the non-closing click handler', () => {
+    const field = component.availableFields[0];
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    spyOn(event, 'preventDefault');
+    spyOn(event, 'stopPropagation');
+
+    component.onDropdownOptionClick(event, field, 'Spot');
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(event.stopPropagation).toHaveBeenCalled();
+    expect(component.advancedForm.get(field.name)?.value).toEqual(['Spot']);
+  });
+
+  it('prevents mouse down from shifting focus away from the autocomplete input', () => {
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    spyOn(event, 'preventDefault');
+    spyOn(event, 'stopPropagation');
+
+    component.onDropdownOptionMouseDown(event);
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(event.stopPropagation).toHaveBeenCalled();
+  });
 });
 
 describe('QueryBuilderComponent DOM', () => {
@@ -181,19 +228,32 @@ describe('QueryBuilderComponent DOM', () => {
     overlayContainer.ngOnDestroy();
   });
 
-  it('renders dropdown options without nested material checkboxes', fakeAsync(() => {
+  it('renders dropdown filters as non-closing toggle options with persistent checkbox indicators', fakeAsync(() => {
     const hostElement = fixture.nativeElement as HTMLElement;
-    const trigger = hostElement.querySelector('.mat-mdc-select-trigger') as HTMLElement | null;
+    const input = hostElement.querySelector('.dropdown-autocomplete-field input') as HTMLInputElement | null;
 
-    expect(trigger).not.toBeNull();
+    expect(input).not.toBeNull();
+    expect(hostElement.querySelector('mat-select')).toBeNull();
+    expect(hostElement.querySelector('.dropdown-selected-values')).toBeNull();
 
-    trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.componentInstance.onDropdownOptionSelected(fixture.componentInstance.availableFields[0], 'closed');
     fixture.detectChanges();
+
+    input?.focus();
+    input?.dispatchEvent(new Event('focusin', { bubbles: true }));
+    if (input) {
+      input.value = 'cl';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    fixture.detectChanges();
+    tick();
     flush();
     fixture.detectChanges();
 
-    expect(overlayContainerElement.querySelectorAll('mat-option').length).toBe(2);
-    expect(overlayContainerElement.querySelectorAll('mat-checkbox').length).toBe(0);
-    expect(overlayContainerElement.querySelectorAll('.mat-pseudo-checkbox').length).toBe(2);
+    const optionText = overlayContainerElement.querySelector('mat-option')?.textContent ?? '';
+    expect(optionText).toContain('check_box');
+    expect(optionText).toContain('Closed');
+    expect(overlayContainerElement.querySelector('.dropdown-option-button')).not.toBeNull();
+    expect(overlayContainerElement.querySelector('.selected-dropdown-option')).not.toBeNull();
   }));
 });

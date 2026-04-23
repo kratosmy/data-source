@@ -148,12 +148,42 @@
                       }
                     }
                     @case ('dropdown') {
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <mat-select [formControlName]="field.name" multiple [attr.aria-label]="field.label" [placeholder]="field.label">
-                          @for (option of field.dropdownOptions ?? []; track option.value) {
-                            <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="dropdown-autocomplete-field">
+                        <input
+                          matInput
+                          [formControlName]="getDropdownSearchControlName(field)"
+                          [matAutocomplete]="dropdownAutocomplete"
+                          [placeholder]="getDropdownPlaceholder(field)"
+                          [attr.aria-label]="field.label"
+                          autocomplete="off"
+                        />
+                        <mat-autocomplete
+                          #dropdownAutocomplete="matAutocomplete"
+                        >
+                          @for (option of getFilteredDropdownOptions(field); track option.value) {
+                            <mat-option
+                              disabled
+                              class="dropdown-toggle-option"
+                              [class.selected-dropdown-option]="isDropdownOptionSelected(field, option.value)"
+                            >
+                              <button
+                                type="button"
+                                class="dropdown-option-button"
+                                [attr.aria-pressed]="isDropdownOptionSelected(field, option.value)"
+                                [attr.aria-label]="field.label + ' ' + option.label"
+                                (mousedown)="onDropdownOptionMouseDown($event)"
+                                (click)="onDropdownOptionClick($event, field, option.value)"
+                              >
+                                <mat-icon class="dropdown-option-checkbox" aria-hidden="true">
+                                  {{ isDropdownOptionSelected(field, option.value) ? 'check_box' : 'check_box_outline_blank' }}
+                                </mat-icon>
+                                <span>{{ option.label }}</span>
+                              </button>
+                            </mat-option>
+                          } @empty {
+                            <mat-option disabled>No matching options</mat-option>
                           }
-                        </mat-select>
+                        </mat-autocomplete>
                       </mat-form-field>
                     }
                     @default {
