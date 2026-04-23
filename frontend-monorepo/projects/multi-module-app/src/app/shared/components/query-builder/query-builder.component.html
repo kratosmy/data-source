@@ -148,15 +148,33 @@
                       }
                     }
                     @default {
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                        <input
-                          matInput
-                          [formControlName]="field.name"
-                          [placeholder]="getFieldPlaceholder(field)"
-                          [attr.aria-label]="field.label"
-                          (keyup.enter)="applyAdvancedFilters()"
-                        />
-                      </mat-form-field>
+                      @if (isDropdownField(field)) {
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <input
+                            matInput
+                            [formControlName]="field.name"
+                            [placeholder]="getFieldPlaceholder(field)"
+                            [attr.aria-label]="field.label"
+                            [matAutocomplete]="auto"
+                            (keyup.enter)="applyAdvancedFilters()"
+                          />
+                          <mat-autocomplete #auto="matAutocomplete">
+                            @for (option of getFilteredDropdownOptions(field.name); track option) {
+                              <mat-option [value]="option">{{ option }}</mat-option>
+                            }
+                          </mat-autocomplete>
+                        </mat-form-field>
+                      } @else {
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                          <input
+                            matInput
+                            [formControlName]="field.name"
+                            [placeholder]="getFieldPlaceholder(field)"
+                            [attr.aria-label]="field.label"
+                            (keyup.enter)="applyAdvancedFilters()"
+                          />
+                        </mat-form-field>
+                      }
                     }
                   }
                 </div>

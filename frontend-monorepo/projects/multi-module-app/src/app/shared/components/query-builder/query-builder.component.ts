@@ -10,9 +10,11 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -45,6 +47,7 @@ interface FieldGroupViewModel {
     ReactiveFormsModule,
     MatFormFieldModule,
     MatSelectModule,
+    MatAutocompleteModule,
     MatInputModule,
     MatIconModule,
     MatButtonModule,
@@ -57,13 +60,19 @@ interface FieldGroupViewModel {
 })
 export class QueryBuilderComponent implements OnInit, OnChanges {
   @Input() availableFields: FilterField[] = [];
+  @Input() apiEndpoint: string | null = null;
   @Output() querySubmit = new EventEmitter<QueryCondition[]>();
 
   queryForm!: FormGroup;
   isAdvancedOpen = false;
   fieldGroups: FieldGroupViewModel[] = [];
+  dropdownOptionsByField: Record<string, string[]> = {};
+  filteredDropdownOptionsByField: Record<string, string[]> = {};
 
-  constructor(private fb: FormBuilder) {}
+  constructor(
+    private fb: FormBuilder,
+    private http?: HttpClient
+  ) {}
 
   ngOnInit() {
     if (!this.queryForm) {
@@ -74,6 +83,11 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges) {
     if (changes['availableFields']) {
       this.initForm();
+      this.loadDropdownOptions();
+    }
+
+    if (changes['apiEndpoint']) {
+      this.loadDropdownOptions();
     }
   }
 
@@ -106,6 +120,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
     this.fieldGroups = this.buildFieldGroups();
     formControls.advanced = this.fb.group(advancedControls);
     this.queryForm = this.fb.group(formControls);
+    this.bindDropdownControlFilters();
   }
 
   get advancedForm(): FormGroup {
@@ -207,6 +222,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
 
   clearAdvancedFilters() {
     this.advancedForm.reset();
+    Object.keys(this.dropdownOptionsByField).forEach(fieldName => this.filterDropdownOptions(fieldName));
   }
 
   applyAdvancedFilters() {
@@ -228,6 +244,14 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
 
   getFieldPlaceholder(field: FilterField): string {
     return field.placeholder ?? '';
+  }
+
+  isDropdownField(field: FilterField): boolean {
+    return field.type === 'string' && field.dropdown === true;
+  }
+
+  getFilteredDropdownOptions(fieldName: string): string[] {
+    return this.filteredDropdownOptionsByField[fieldName] ?? [];
   }
 
   getRangeStartPlaceholder(field: FilterField): string {
@@ -314,6 +338,71 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
   isCheckboxOptionSelected(field: FilterField, optionValue: string): boolean {
     const controlValue = this.advancedForm.get(field.name)?.value;
     return Array.isArray(controlValue) && controlValue.includes(optionValue);
+  }
+
+  private loadDropdownOptions(): void {
+    if (!this.http || !this.apiEndpoint) {
+      return;
+    }
+
+    const dropdownFields = this.availableFields.filter(field => this.isDropdownField(field));
+    if (dropdownFields.length === 0) {
+      this.dropdownOptionsByField = {};
+      this.filteredDropdownOptionsByField = {};
+      return;
+    }
+
+    this.http.post<Record<string, unknown>[]>(`${this.apiEndpoint}/query`, { conditions: [] }).subscribe({
+      next: rows => {
+        const optionsByField: Record<string, string[]> = {};
+        dropdownFields.forEach(field => {
+          const uniqueValues = new Set<string>();
+          (rows ?? []).forEach(row => {
+            const rawValue = row?.[field.name];
+            if (rawValue == null) {
+              return;
+            }
+            const normalized = String(rawValue).trim();
+            if (normalized !== '') {
+              uniqueValues.add(normalized);
+            }
+          });
+          optionsByField[field.name] = Array.from(uniqueValues).sort((a, b) => a.localeCompare(b));
+        });
+
+        this.dropdownOptionsByField = optionsByField;
+        dropdownFields.forEach(field => this.filterDropdownOptions(field.name));
+      },
+      error: () => {
+        this.dropdownOptionsByField = {};
+        this.filteredDropdownOptionsByField = {};
+      }
+    });
+  }
+
+  private bindDropdownControlFilters(): void {
+    const dropdownFields = this.availableFields.filter(field => this.isDropdownField(field));
+    dropdownFields.forEach(field => {
+      const control = this.advancedForm.get(field.name);
+      if (!control) {
+        return;
+      }
+
+      control.valueChanges.subscribe(() => this.filterDropdownOptions(field.name));
+      this.filterDropdownOptions(field.name);
+    });
+  }
+
+  private filterDropdownOptions(fieldName: string): void {
+    const controlValue = this.advancedForm.get(fieldName)?.value;
+    const keyword = typeof controlValue === 'string' ? controlValue.trim().toLowerCase() : '';
+    const allOptions = this.dropdownOptionsByField[fieldName] ?? [];
+    const matched = keyword === '' ? allOptions : allOptions.filter(item => item.toLowerCase().includes(keyword));
+    if (keyword !== '' && !matched.some(item => item.toLowerCase() === keyword)) {
+      this.filteredDropdownOptionsByField[fieldName] = [String(controlValue).trim(), ...matched];
+      return;
+    }
+    this.filteredDropdownOptionsByField[fieldName] = matched;
   }
 
   private parseTimeParts(value: string): [number, number, number] | null {

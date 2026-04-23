@@ -8,6 +8,7 @@ export interface FilterField {
   name: string;
   label: string;
   type: FilterFieldType;
+  dropdown?: boolean;
   checkboxOptions?: Array<{ label: string; value: string }>;
   group?: string;
   gridSpan?: 3 | 4 | 6 | 12;
@@ -39,10 +40,10 @@ export const BuiltinModules: Record<string, DataQueryConfig> = {
     apiEndpoint: `${entityApiBasePath}/trades`,
     metricEndpoint: `${entityApiBasePath}/trades/metric`,
     filterFields: [
-      { name: 'tradeType', label: 'Trade Type', type: 'string', group: 'Basic' },
-      { name: 'currency', label: 'Currency', type: 'string', group: 'Basic' },
+      { name: 'tradeType', label: 'Trade Type', type: 'string', group: 'Basic', dropdown: true },
+      { name: 'currency', label: 'Currency', type: 'string', group: 'Basic', dropdown: true },
       { name: 'tradeDate', label: 'Trade Date', type: 'date', group: 'Time' },
-      { name: 'counterparty', label: 'Counterparty', type: 'string', group: 'Counterparty' }
+      { name: 'counterparty', label: 'Counterparty', type: 'string', group: 'Counterparty', dropdown: true }
     ],
     numericColumns: ['amount', 'id'],
     groupByFields: ['tradeType', 'currency', 'counterparty'],
@@ -79,7 +80,7 @@ export const BuiltinModules: Record<string, DataQueryConfig> = {
     apiEndpoint: `${entityApiBasePath}/cryptoassets`,
     metricEndpoint: `${entityApiBasePath}/cryptoassets/metric`,
     filterFields: [
-      { name: 'symbol', label: 'Symbol', type: 'string', group: 'Basic' },
+      { name: 'symbol', label: 'Symbol', type: 'string', group: 'Basic', dropdown: true },
       { name: 'listingDate', label: 'Listing Date', type: 'date', group: 'Time' }
     ],
     numericColumns: ['marketCap', 'id'],

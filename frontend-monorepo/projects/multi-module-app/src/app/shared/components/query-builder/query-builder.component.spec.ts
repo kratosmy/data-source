@@ -106,4 +106,16 @@ describe('QueryBuilderComponent', () => {
     component.applyAdvancedFilters();
     expect(emitSpy).toHaveBeenCalledWith([{ field: 'msgdirection', operator: 'IN', value: 'in,out' }]);
   });
+
+  it('filters dropdown options and keeps manual input', () => {
+    component.availableFields = [{ name: 'currency', label: 'Currency', type: 'string', dropdown: true }];
+    component.initForm();
+    component.dropdownOptionsByField = { currency: ['CNY', 'EUR', 'USD'] };
+
+    component.advancedForm.patchValue({ currency: 'U' });
+    expect(component.getFilteredDropdownOptions('currency')).toEqual(['U', 'USD']);
+
+    component.advancedForm.patchValue({ currency: 'AUD' });
+    expect(component.getFilteredDropdownOptions('currency')).toEqual(['AUD']);
+  });
 });

@@ -9,6 +9,7 @@
     <app-query-builder
       *ngIf="config && config.filterFields"
       [availableFields]="config.filterFields"
+      [apiEndpoint]="config.apiEndpoint"
       (querySubmit)="onQuerySubmit($event)"
     >
     </app-query-builder>
