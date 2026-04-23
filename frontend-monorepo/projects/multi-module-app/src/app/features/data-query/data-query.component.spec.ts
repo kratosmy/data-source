@@ -171,7 +171,7 @@ describe('DataQueryComponent', () => {
 
     spyOn<any>(component, 'downloadBlob');
     spyOn<any>(component, 'blobToBase64').and.resolveTo('encoded-file');
-    http.post.and.returnValue(of({ deliveryMode: 'log-only' }));
+    http.post.and.returnValue(of({ status: 200, body: '{"deliveryMode":"log-only"}' }));
 
     component.exportSelectedRowsAndSendEmail();
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -190,6 +190,9 @@ describe('DataQueryComponent', () => {
         ]
       })
     );
+    const requestOptions = http.post.calls.mostRecent().args[2] as { observe: string; responseType: string };
+    expect(requestOptions.observe).toBe('response');
+    expect(requestOptions.responseType).toBe('text');
     expect(component.exportFeedback).toEqual({
       tone: 'success',
       message:
@@ -210,7 +213,7 @@ describe('DataQueryComponent', () => {
 
     const downloadBlobSpy = spyOn<any>(component, 'downloadBlob');
     spyOn<any>(component, 'blobToBase64').and.resolveTo('encoded-file');
-    http.post.and.returnValue(of({ status: 'accepted', deliveryMode: 'log-only' }));
+    http.post.and.returnValue(of({ status: 200, body: '{"status":"accepted","deliveryMode":"log-only"}' }));
 
     component.exportSelectedRowsAndSendEmail();
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -229,10 +232,24 @@ describe('DataQueryComponent', () => {
         ]
       })
     );
+    const requestOptions = http.post.calls.mostRecent().args[2] as { observe: string; responseType: string };
+    expect(requestOptions.observe).toBe('response');
+    expect(requestOptions.responseType).toBe('text');
     expect(component.exportFeedback).toEqual({
       tone: 'success',
       message:
         'CSV and XLSX downloaded and export email accepted for 1 recipient. Email delivery is running in local log-only mode.'
     });
+  });
+
+  it('builds user-friendly export file names', () => {
+    jasmine.clock().install();
+    jasmine.clock().mockDate(new Date('2026-04-23T08:15:00.000Z'));
+
+    const fileBaseName = (component as any).buildExportFileBaseName('All Data / Spot');
+
+    expect(fileBaseName).toBe('All-Data-Spot-export-2026-04-23-0815');
+
+    jasmine.clock().uninstall();
   });
 });
