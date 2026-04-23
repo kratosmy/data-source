@@ -62,6 +62,11 @@ interface ExportEmailResponse {
   message?: string;
 }
 
+interface ExportEmailHttpResponse {
+  status: number;
+  body: string | null;
+}
+
 @Component({
   standalone: false,
   selector: 'app-aggregation-dialog',
@@ -555,7 +560,7 @@ export class DataQueryComponent implements OnInit {
     return `${this.selectedRowCount} selected of ${this.visibleRowCount} visible`;
   }
 
-  exportSelectedRowsAndSendEmail() {
+  async exportSelectedRowsAndSendEmail() {
     this.clearExportFeedback();
     if (this.isExporting || !this.gridApi || !this.queryTabs[this.selectedTabIndex]) {
       return;
@@ -595,52 +600,51 @@ export class DataQueryComponent implements OnInit {
 
     const activeTab = this.queryTabs[this.selectedTabIndex];
     const activeColDefs = activeTab.colDefs || this.colDefs;
-    const fileBaseName = `${this.sanitizeFileName(activeTab.title || 'query-result')}-${new Date().toISOString().slice(0, 10)}`;
+    const fileBaseName = this.buildExportFileBaseName(activeTab.title || 'query-result');
     const preparedFiles = this.prepareExportFiles(selectedRows, activeColDefs, fileBaseName, selectedFormats);
 
     preparedFiles.forEach(file => this.downloadBlob(file.blob, file.fileName));
 
     this.isExporting = true;
-    Promise.all(
-      preparedFiles.map(file =>
-        this.blobToBase64(file.blob).then(
-          (fileBase64): ExportAttachmentPayload => ({
-            fileName: file.fileName,
-            contentType: file.contentType,
-            fileBase64
-          })
-        )
-      )
-    )
-      .then(attachments => {
-        const payload: ExportEmailPayload = {
-          to: recipientEmails,
-          from: senderEmail,
-          cc: [],
-          attachments
-        };
-        return firstValueFrom(this.http.post<ExportEmailResponse>(`${this.config.apiEndpoint}/export/email`, payload));
-      })
-      .then(response => {
-        const recipientLabel = recipientEmails.length === 1 ? 'recipient' : 'recipients';
-        const downloadedFormats = this.describeExportFormats(selectedFormats);
-        const deliveryMessage =
-          response?.deliveryMode === 'log-only' ? ' Email delivery is running in local log-only mode.' : '';
-        this.setExportFeedback(
-          'success',
-          `${downloadedFormats} downloaded and export email accepted for ${recipientEmails.length} ${recipientLabel}.${deliveryMessage}`
-        );
-      })
-      .catch(error => {
-        console.error('Failed to send export email', error);
-        this.setExportFeedback(
-          'error',
-          'Selected files downloaded successfully, but sending the email request failed. Please try again.'
-        );
-      })
-      .finally(() => {
-        this.isExporting = false;
-      });
+    try {
+      const attachments = await Promise.all(
+        preparedFiles.map(async file => ({
+          fileName: file.fileName,
+          contentType: file.contentType,
+          fileBase64: await this.blobToBase64(file.blob)
+        }))
+      );
+      const payload: ExportEmailPayload = {
+        to: recipientEmails,
+        from: senderEmail,
+        cc: [],
+        attachments
+      };
+
+      const response = (await firstValueFrom(
+        this.http.post(`${this.config.apiEndpoint}/export/email`, payload, {
+          observe: 'response',
+          responseType: 'text'
+        })
+      )) as ExportEmailHttpResponse;
+      const responseBody = this.tryParseExportEmailResponse(response.body);
+      const recipientLabel = recipientEmails.length === 1 ? 'recipient' : 'recipients';
+      const downloadedFormats = this.describeExportFormats(selectedFormats);
+      const deliveryMessage =
+        responseBody?.deliveryMode === 'log-only' ? ' Email delivery is running in local log-only mode.' : '';
+      this.setExportFeedback(
+        'success',
+        `${downloadedFormats} downloaded and export email accepted for ${recipientEmails.length} ${recipientLabel}.${deliveryMessage}`
+      );
+    } catch (error) {
+      console.error('Failed to send export email', error);
+      this.setExportFeedback(
+        'error',
+        'Selected files downloaded successfully, but sending the email request failed. Please try again.'
+      );
+    } finally {
+      this.isExporting = false;
+    }
   }
 
   private withReadableHeaders(columnDefs: ColDef[]): ColDef[] {
@@ -848,7 +852,32 @@ export class DataQueryComponent implements OnInit {
   }
 
   private sanitizeFileName(fileName: string): string {
-    return fileName.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '_');
+    return fileName
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  private buildExportFileBaseName(tabTitle: string): string {
+    const now = new Date();
+    const datePart = now.toISOString().slice(0, 10);
+    const timePart = now.toISOString().slice(11, 16).replace(':', '');
+    const normalizedTitle = this.sanitizeFileName(tabTitle || 'query-results');
+
+    return `${normalizedTitle || 'query-results'}-export-${datePart}-${timePart}`;
+  }
+
+  private tryParseExportEmailResponse(responseBody: string | null): ExportEmailResponse | null {
+    if (!responseBody) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(responseBody) as ExportEmailResponse;
+    } catch {
+      return null;
+    }
   }
 
   private describeExportFormats(formats: ExportFormat[]): string {
