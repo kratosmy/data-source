@@ -23,7 +23,6 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 
-import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Configuration
@@ -147,12 +146,15 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService(BackendUserContextMapper userContextMapper) {
+    OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService(BackendUserContextMapper userContextMapper,
+                                                                        HumanUserAuthoritiesService humanUserAuthoritiesService) {
         DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
         return userRequest -> {
             OAuth2User user = delegate.loadUser(userRequest);
-            Set<GrantedAuthority> authorities = new LinkedHashSet<>(user.getAuthorities());
-            authorities.addAll(userContextMapper.toGrantedAuthorities(user.getAttributes()));
+            Set<GrantedAuthority> authorities = humanUserAuthoritiesService.mergeAuthorities(
+                    user.getAuthorities(),
+                    userContextMapper.toGrantedAuthorities(user.getAttributes())
+            );
 
             String userNameAttributeName = userRequest.getClientRegistration()
                     .getProviderDetails()
