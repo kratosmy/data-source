@@ -12,7 +12,7 @@ import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angul
 import { CommonModule } from '@angular/common';
 
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -35,6 +35,9 @@ interface FieldGroupViewModel {
   fields: FilterField[];
 }
 
+type AdvancedFilterValue = string | string[] | Date | boolean | null;
+type DropdownOption = NonNullable<FilterField['dropdownOptions']>[number];
+
 @Component({
   selector: 'app-query-builder',
   templateUrl: './query-builder.component.html',
@@ -44,7 +47,7 @@ interface FieldGroupViewModel {
     CommonModule,
     ReactiveFormsModule,
     MatFormFieldModule,
-    MatSelectModule,
+    MatAutocompleteModule,
     MatInputModule,
     MatIconModule,
     MatButtonModule,
@@ -85,7 +88,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       simpleSearch: new FormControl('')
     };
 
-    const advancedControls: Record<string, FormControl<string | string[] | Date | boolean | null>> = {};
+    const advancedControls: Record<string, FormControl<AdvancedFilterValue>> = {};
     if (this.availableFields) {
       this.availableFields.forEach(field => {
         if (this.isRangeField(field)) {
@@ -93,6 +96,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
           advancedControls[`${field.name}_end`] = new FormControl(null);
         } else if (field.type === 'dropdown') {
           advancedControls[field.name] = new FormControl<string[]>([]);
+          advancedControls[this.getDropdownSearchControlName(field)] = new FormControl('');
         } else if (field.type === 'checkbox') {
           if ((field.checkboxOptions?.length ?? 0) > 0) {
             advancedControls[field.name] = new FormControl<string[]>([]);
@@ -160,7 +164,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
 
   onAdvancedSubmit() {
     const conditions: QueryCondition[] = [];
-    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | string[] | Date | boolean | null>;
+    const advancedValues = this.advancedForm.getRawValue() as Record<string, AdvancedFilterValue>;
 
     this.availableFields.forEach(field => {
       if (field.type === 'date') {
@@ -252,7 +256,7 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
       return 0;
     }
 
-    const advancedValues = this.advancedForm.getRawValue() as Record<string, string | string[] | Date | boolean | null>;
+    const advancedValues = this.advancedForm.getRawValue() as Record<string, AdvancedFilterValue>;
 
     return this.availableFields.reduce((count, field) => {
       if (this.isRangeField(field)) {
@@ -327,6 +331,63 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
   isCheckboxOptionSelected(field: FilterField, optionValue: string): boolean {
     const controlValue = this.advancedForm.get(field.name)?.value;
     return Array.isArray(controlValue) && controlValue.includes(optionValue);
+  }
+
+  getDropdownSearchControlName(field: FilterField): string {
+    return `${field.name}_search`;
+  }
+
+  getDropdownPlaceholder(field: FilterField): string {
+    return field.placeholder ?? 'Type to filter options';
+  }
+
+  getFilteredDropdownOptions(field: FilterField): DropdownOption[] {
+    const searchValue = this.advancedForm.get(this.getDropdownSearchControlName(field))?.value;
+    const normalizedSearch = typeof searchValue === 'string' ? searchValue.trim().toLowerCase() : '';
+
+    return (field.dropdownOptions ?? []).filter(option => {
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      return (
+        option.label.toLowerCase().includes(normalizedSearch) || option.value.toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }
+
+  getSelectedDropdownValues(field: FilterField): string[] {
+    const controlValue = this.advancedForm.get(field.name)?.value;
+    return Array.isArray(controlValue) ? controlValue : [];
+  }
+
+  isDropdownOptionSelected(field: FilterField, optionValue: string): boolean {
+    return this.getSelectedDropdownValues(field).includes(optionValue);
+  }
+
+  onDropdownOptionClick(event: MouseEvent, field: FilterField, optionValue: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.onDropdownOptionSelected(field, optionValue);
+  }
+
+  onDropdownOptionMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  onDropdownOptionSelected(field: FilterField, optionValue: string): void {
+    const control = this.advancedForm.get(field.name);
+    if (!control) {
+      return;
+    }
+
+    const currentValues = Array.isArray(control.value) ? control.value : [];
+    const nextValues = currentValues.includes(optionValue)
+      ? currentValues.filter(value => value !== optionValue)
+      : [...currentValues, optionValue];
+
+    control.setValue(nextValues);
   }
 
   private parseTimeParts(value: string): [number, number, number] | null {

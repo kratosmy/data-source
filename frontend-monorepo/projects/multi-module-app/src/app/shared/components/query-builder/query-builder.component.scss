@@ -328,6 +328,47 @@ $input-height: 40px;
     gap: 8px;
   }
 
+  .dropdown-option-checkbox {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    color: $text-muted;
+    font-size: 18px;
+    vertical-align: middle;
+  }
+
+  .selected-dropdown-option {
+    .dropdown-option-checkbox {
+      color: $primary;
+    }
+  }
+
+  ::ng-deep .dropdown-toggle-option.mat-mdc-option.mdc-list-item--disabled {
+    pointer-events: auto;
+
+    .mat-mdc-option-pseudo-checkbox,
+    .mdc-list-item__primary-text,
+    > mat-icon {
+      opacity: 1;
+    }
+  }
+
+  .dropdown-option-button {
+    display: inline-flex;
+    align-items: center;
+    width: calc(100% + 32px);
+    min-height: 48px;
+    margin: 0 -16px;
+    padding: 0 16px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
   .advanced-panel-actions {
     display: flex;
     justify-content: flex-end;
