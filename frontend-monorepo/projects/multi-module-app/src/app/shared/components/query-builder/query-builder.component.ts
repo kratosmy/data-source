@@ -37,6 +37,7 @@ interface FieldGroupViewModel {
 
 type AdvancedFilterValue = string | string[] | Date | boolean | null;
 type DropdownOption = NonNullable<FilterField['dropdownOptions']>[number];
+type DropdownOptionSource = Array<string | DropdownOption>;
 
 @Component({
   selector: 'app-query-builder',
@@ -60,6 +61,7 @@ type DropdownOption = NonNullable<FilterField['dropdownOptions']>[number];
 })
 export class QueryBuilderComponent implements OnInit, OnChanges {
   @Input() availableFields: FilterField[] = [];
+  @Input() dropdownOptionsByField: Record<string, DropdownOptionSource> = {};
   @Output() querySubmit = new EventEmitter<QueryCondition[]>();
 
   queryForm!: FormGroup;
@@ -344,8 +346,9 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
   getFilteredDropdownOptions(field: FilterField): DropdownOption[] {
     const searchValue = this.advancedForm.get(this.getDropdownSearchControlName(field))?.value;
     const normalizedSearch = typeof searchValue === 'string' ? searchValue.trim().toLowerCase() : '';
+    const options = this.getDropdownOptions(field);
 
-    return (field.dropdownOptions ?? []).filter(option => {
+    return options.filter(option => {
       if (!normalizedSearch) {
         return true;
       }
@@ -354,6 +357,16 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
         option.label.toLowerCase().includes(normalizedSearch) || option.value.toLowerCase().includes(normalizedSearch)
       );
     });
+  }
+
+  private getDropdownOptions(field: FilterField): DropdownOption[] {
+    const fieldLevelOptions = field.dropdownOptions ?? [];
+    if (fieldLevelOptions.length > 0) {
+      return fieldLevelOptions;
+    }
+
+    const optionsFromInput = this.dropdownOptionsByField[field.name] ?? [];
+    return optionsFromInput.map(option => (typeof option === 'string' ? { label: option, value: option } : option));
   }
 
   getSelectedDropdownValues(field: FilterField): string[] {

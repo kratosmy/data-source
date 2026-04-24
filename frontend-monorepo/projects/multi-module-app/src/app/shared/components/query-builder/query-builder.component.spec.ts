@@ -170,6 +170,19 @@ describe('QueryBuilderComponent', () => {
     expect(component.advancedForm.get(field.name)?.value).toEqual([]);
   });
 
+  it('uses dropdown options passed separately when field config has no dropdownOptions', () => {
+    component.availableFields = [{ name: 'symbol', label: 'Symbol', type: 'dropdown' }];
+    component.dropdownOptionsByField = {
+      symbol: ['BTC', 'ETH']
+    };
+    component.initForm();
+    const field = component.availableFields[0];
+
+    component.advancedForm.get(component.getDropdownSearchControlName(field))?.setValue('bt');
+
+    expect(component.getFilteredDropdownOptions(field)).toEqual([{ label: 'BTC', value: 'BTC' }]);
+  });
+
   it('toggles dropdown selections through the non-closing click handler', () => {
     const field = component.availableFields[0];
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
