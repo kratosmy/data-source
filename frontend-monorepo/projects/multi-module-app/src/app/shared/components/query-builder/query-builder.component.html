@@ -70,7 +70,11 @@
 
             <div class="fields-grid">
               @for (field of group.fields; track field.name) {
-                <div class="field-shell" [attr.data-span]="getFieldGridSpan(field)">
+                <div
+                  class="field-shell"
+                  [attr.data-span]="getFieldGridSpan(field)"
+                  [class.active-dropdown-field]="field.type === 'dropdown' && isDropdownFieldActive(field)"
+                >
                   @if (field.type !== 'checkbox') {
                     <label class="field-above-label">{{ field.label }}</label>
                   }
@@ -185,6 +189,12 @@
                           }
                         </mat-autocomplete>
                       </mat-form-field>
+                      @if (isDropdownFieldActive(field)) {
+                        <div class="dropdown-selection-hint" [attr.aria-label]="'Selected ' + field.label">
+                          <span class="selection-count">{{ getSelectedDropdownLabels(field).length }} selected:</span>
+                          <span class="selection-summary">{{ getDropdownSelectionSummary(field) }}</span>
+                        </div>
+                      }
                     }
                     @default {
                       <mat-form-field appearance="outline" subscriptSizing="dynamic">

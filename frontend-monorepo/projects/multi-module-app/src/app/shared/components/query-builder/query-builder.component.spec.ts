@@ -170,6 +170,20 @@ describe('QueryBuilderComponent', () => {
     expect(component.advancedForm.get(field.name)?.value).toEqual([]);
   });
 
+  it('builds dropdown selection summary with count overflow', () => {
+    const field = component.availableFields[0];
+    field.dropdownOptions = [
+      { label: 'Spot', value: 'Spot' },
+      { label: 'Forward', value: 'Forward' },
+      { label: 'Swap', value: 'Swap' }
+    ];
+    component.advancedForm.patchValue({ tradeType: ['Spot', 'Forward', 'Swap'] });
+
+    expect(component.isDropdownFieldActive(field)).toBeTrue();
+    expect(component.getSelectedDropdownLabels(field)).toEqual(['Spot', 'Forward', 'Swap']);
+    expect(component.getDropdownSelectionSummary(field)).toBe('Spot, Forward +1 more');
+  });
+
   it('uses dropdown options passed separately when field config has no dropdownOptions', () => {
     component.availableFields = [{ name: 'symbol', label: 'Symbol', type: 'dropdown' }];
     component.dropdownOptionsByField = {
@@ -247,7 +261,7 @@ describe('QueryBuilderComponent DOM', () => {
 
     expect(input).not.toBeNull();
     expect(hostElement.querySelector('mat-select')).toBeNull();
-    expect(hostElement.querySelector('.dropdown-selected-values')).toBeNull();
+    expect(hostElement.querySelector('.dropdown-selection-hint')).toBeNull();
 
     fixture.componentInstance.onDropdownOptionSelected(fixture.componentInstance.availableFields[0], 'closed');
     fixture.detectChanges();
@@ -268,5 +282,8 @@ describe('QueryBuilderComponent DOM', () => {
     expect(optionText).toContain('Closed');
     expect(overlayContainerElement.querySelector('.dropdown-option-button')).not.toBeNull();
     expect(overlayContainerElement.querySelector('.selected-dropdown-option')).not.toBeNull();
+    expect(hostElement.querySelector('.dropdown-selection-hint')?.textContent).toContain('1 selected');
+    expect(hostElement.querySelector('.dropdown-selection-hint')?.textContent).toContain('Closed');
+    expect(hostElement.querySelector('.active-dropdown-field')).not.toBeNull();
   }));
 });

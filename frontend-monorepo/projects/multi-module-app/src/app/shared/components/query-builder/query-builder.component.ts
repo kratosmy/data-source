@@ -38,6 +38,7 @@ interface FieldGroupViewModel {
 type AdvancedFilterValue = string | string[] | Date | boolean | null;
 type DropdownOption = NonNullable<FilterField['dropdownOptions']>[number];
 type DropdownOptionSource = Array<string | DropdownOption>;
+const dropdownSelectionSummaryLimit = 2;
 
 @Component({
   selector: 'app-query-builder',
@@ -376,6 +377,31 @@ export class QueryBuilderComponent implements OnInit, OnChanges {
 
   isDropdownOptionSelected(field: FilterField, optionValue: string): boolean {
     return this.getSelectedDropdownValues(field).includes(optionValue);
+  }
+
+  isDropdownFieldActive(field: FilterField): boolean {
+    return this.getSelectedDropdownValues(field).length > 0;
+  }
+
+  getSelectedDropdownLabels(field: FilterField): string[] {
+    const selectedValues = this.getSelectedDropdownValues(field);
+    if (selectedValues.length === 0) {
+      return [];
+    }
+
+    const options = this.getDropdownOptions(field);
+    const labelByValue = new Map(options.map(option => [option.value, option.label]));
+    return selectedValues.map(value => labelByValue.get(value) ?? value);
+  }
+
+  getDropdownSelectionSummary(field: FilterField): string {
+    const labels = this.getSelectedDropdownLabels(field);
+    if (labels.length <= dropdownSelectionSummaryLimit) {
+      return labels.join(', ');
+    }
+
+    const visibleLabels = labels.slice(0, dropdownSelectionSummaryLimit).join(', ');
+    return `${visibleLabels} +${labels.length - dropdownSelectionSummaryLimit} more`;
   }
 
   onDropdownOptionClick(event: MouseEvent, field: FilterField, optionValue: string): void {
