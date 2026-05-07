@@ -1,4 +1,5 @@
 import { fakeAsync, tick } from '@angular/core/testing';
+import { ChangeDetectorRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuTrigger } from '@angular/material/menu';
@@ -14,12 +15,14 @@ describe('DataQueryComponent', () => {
   let dialog: jasmine.SpyObj<MatDialog>;
   let component: DataQueryComponent;
   let emailSettingsTrigger: jasmine.SpyObj<MatMenuTrigger>;
+  let changeDetectorRef: jasmine.SpyObj<ChangeDetectorRef>;
 
   beforeEach(() => {
     http = jasmine.createSpyObj<HttpClient>('HttpClient', ['get', 'post']);
     dialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
+    changeDetectorRef = jasmine.createSpyObj<ChangeDetectorRef>('ChangeDetectorRef', ['markForCheck']);
 
-    component = createComponent(http, dialog);
+    component = createComponent(http, dialog, 'alice@example.com', changeDetectorRef);
     emailSettingsTrigger = jasmine.createSpyObj<MatMenuTrigger>('MatMenuTrigger', ['openMenu', 'closeMenu']);
 
     component.config = BuiltinModules['xms'];
@@ -194,6 +197,34 @@ describe('DataQueryComponent', () => {
     });
   });
 
+  it('marks the export view for refresh when the email request completes', async () => {
+    component.gridApi.getSelectedNodes.and.returnValue([
+      {
+        data: {
+          id: 1,
+          tradeType: 'Spot'
+        }
+      }
+    ]);
+    spyOn<any>(component, 'downloadBlob');
+    spyOn<any>(component, 'blobToBase64').and.resolveTo('encoded-file');
+    http.post.and.returnValue(of({ status: 202, body: null }));
+
+    const exportPromise = component.exportSelectedRowsAndSendEmail();
+
+    expect(component.isExporting).toBeTrue();
+    changeDetectorRef.markForCheck.calls.reset();
+
+    await exportPromise;
+
+    expect(component.isExporting).toBeFalse();
+    expect(component.exportFeedback).toEqual({
+      tone: 'success',
+      message: 'CSV downloaded and export email accepted for 1 recipient.'
+    });
+    expect(changeDetectorRef.markForCheck).toHaveBeenCalled();
+  });
+
   it('downloads and sends both csv and xlsx attachments when both formats are selected', async () => {
     component.gridApi.getSelectedNodes.and.returnValue([
       {
@@ -326,14 +357,20 @@ describe('DataQueryComponent', () => {
 function createComponent(
   http: jasmine.SpyObj<HttpClient>,
   dialog: jasmine.SpyObj<MatDialog>,
-  email?: string
+  email?: string,
+  changeDetectorRef = jasmine.createSpyObj<ChangeDetectorRef>('ChangeDetectorRef', ['markForCheck'])
 ): DataQueryComponent {
   const resolvedEmail = arguments.length < 3 ? 'alice@example.com' : email;
-  return new DataQueryComponent(http, dialog, {
-    currentUserValue: {
-      email: resolvedEmail
-    }
-  } as AuthService);
+  return new DataQueryComponent(
+    http,
+    dialog,
+    {
+      currentUserValue: {
+        email: resolvedEmail
+      }
+    } as AuthService,
+    changeDetectorRef
+  );
 }
 
 function createConfig(overrides: Partial<DataQueryConfig> = {}): DataQueryConfig {

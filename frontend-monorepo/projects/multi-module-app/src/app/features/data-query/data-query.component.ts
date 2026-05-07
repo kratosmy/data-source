@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, Inject, Input } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, ViewChild, Inject, Input } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import {
   ColDef,
@@ -169,7 +169,8 @@ export class DataQueryComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private dialog: MatDialog,
-    private authService: AuthService
+    private authService: AuthService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -620,7 +621,7 @@ export class DataQueryComponent implements OnInit {
 
     preparedFiles.forEach(file => this.downloadBlob(file.blob, file.fileName));
 
-    this.isExporting = true;
+    this.setExporting(true);
     try {
       const attachments = await Promise.all(
         preparedFiles.map(async file => ({
@@ -658,7 +659,7 @@ export class DataQueryComponent implements OnInit {
         'Selected files downloaded successfully, but sending the email request failed. Please try again.'
       );
     } finally {
-      this.isExporting = false;
+      this.setExporting(false);
     }
   }
 
@@ -714,6 +715,11 @@ export class DataQueryComponent implements OnInit {
 
   private clearExportFeedback() {
     this.exportFeedback = null;
+  }
+
+  private setExporting(isExporting: boolean) {
+    this.isExporting = isExporting;
+    this.changeDetectorRef.markForCheck();
   }
 
   private openEmailSettingsMenu() {
