@@ -8,6 +8,7 @@ import { of, throwError } from 'rxjs';
 import { BuiltinModules, DataQueryConfig } from '../../core/config/data-query.config';
 import { AuthService } from '../../core/services/auth.service';
 import { DataQueryComponent } from './data-query.component';
+import { LargeTextCellRendererComponent, LargeTextValueDialogComponent } from './large-text-cell-renderer.component';
 import { QueryCondition } from '../../shared/components/query-builder/query-builder.component';
 
 describe('DataQueryComponent', () => {
@@ -70,6 +71,43 @@ describe('DataQueryComponent', () => {
 
     component.onEmailSettingsMenuClosed();
     expect(component.isEmailConfigOpen).toBeFalse();
+  });
+
+  it('uses the detached renderer for large text cell values', () => {
+    const colDefs = (component as any).withReadableHeaders([{ field: 'description', headerName: 'Description' }]);
+    const rendererSelector = colDefs[0].cellRendererSelector;
+    const largeValue = 'word '.repeat(120);
+
+    expect(rendererSelector?.({ value: largeValue, colDef: colDefs[0] } as any)?.component).toBe(
+      LargeTextCellRendererComponent
+    );
+    expect(rendererSelector?.({ value: 'short value', colDef: colDefs[0] } as any)).toBeUndefined();
+  });
+
+  it('opens a detached dialog for the full large text value', () => {
+    const renderer = new LargeTextCellRendererComponent(dialog);
+    const value = 'word '.repeat(120).trim();
+    const stopPropagation = jasmine.createSpy('stopPropagation');
+
+    renderer.agInit({
+      value,
+      colDef: { field: 'description', headerName: 'Description' }
+    } as any);
+    renderer.openDialog({ stopPropagation } as unknown as MouseEvent);
+
+    expect(stopPropagation).toHaveBeenCalled();
+    expect(renderer.previewText.endsWith('…')).toBeTrue();
+    expect(dialog.open).toHaveBeenCalledWith(
+      LargeTextValueDialogComponent,
+      jasmine.objectContaining({
+        data: jasmine.objectContaining({
+          fieldLabel: 'Description',
+          value,
+          characterCount: value.length,
+          wordCount: 120
+        })
+      })
+    );
   });
 
   it('shows inline feedback when no export format is selected', () => {

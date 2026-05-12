@@ -1,0 +1,13 @@
+<div class="large-text-cell">
+  <span class="large-text-preview">{{ previewText }}</span>
+  <button
+    mat-button
+    class="large-text-open-button"
+    type="button"
+    (click)="openDialog($event)"
+    [attr.aria-label]="'View full text for ' + fieldLabel"
+  >
+    <mat-icon aria-hidden="true">open_in_new</mat-icon>
+    <span>View full text</span>
+  </button>
+</div>

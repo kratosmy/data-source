@@ -16,9 +16,15 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { AgGridAngular } from 'ag-grid-angular';
 import { QueryBuilderComponent } from '../../shared/components/query-builder/query-builder.component';
+import { LargeTextCellRendererComponent, LargeTextValueDialogComponent } from './large-text-cell-renderer.component';
 
 @NgModule({
-  declarations: [DataQueryComponent, AggregationDialogComponent],
+  declarations: [
+    DataQueryComponent,
+    AggregationDialogComponent,
+    LargeTextCellRendererComponent,
+    LargeTextValueDialogComponent
+  ],
   imports: [
     CommonModule,
     AgGridAngular,

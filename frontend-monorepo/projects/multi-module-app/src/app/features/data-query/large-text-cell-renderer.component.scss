@@ -1,0 +1,63 @@
+:host {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.large-text-cell {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  height: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.large-text-preview {
+  color: #16233a;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.large-text-open-button {
+  flex-shrink: 0;
+  font-size: 12px;
+  height: 28px;
+  line-height: 28px;
+  min-width: auto;
+  padding: 0 8px;
+
+  mat-icon {
+    font-size: 16px;
+    height: 16px;
+    margin-right: 4px;
+    width: 16px;
+  }
+}
+
+.large-text-dialog-content {
+  max-height: 70vh;
+}
+
+.large-text-dialog-meta {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.large-text-dialog-value {
+  color: #16233a;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

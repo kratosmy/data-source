@@ -7,7 +7,9 @@ import {
   ModuleRegistry,
   AllCommunityModule,
   RowSelectionOptions,
-  SelectionColumnDef
+  SelectionColumnDef,
+  CellRendererSelectorResult,
+  ICellRendererParams
 } from 'ag-grid-community';
 import { firstValueFrom } from 'rxjs';
 import * as XLSX from 'xlsx';
@@ -20,6 +22,7 @@ import { MatDialog, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dial
 import { DataQueryConfig, FilterField } from '../../core/config/data-query.config';
 import { AuthService } from '../../core/services/auth.service';
 import { QueryCondition } from '../../shared/components/query-builder/query-builder.component';
+import { LargeTextCellRendererComponent } from './large-text-cell-renderer.component';
 
 export interface QueryTab {
   title: string;
@@ -112,6 +115,7 @@ export class DataQueryComponent implements OnInit {
   private static readonly estimatedHeaderCharacterWidth = 10;
   private static readonly estimatedHeaderPadding = 48;
   private static readonly maxEstimatedColumnWidth = 320;
+  private static readonly largeTextCharacterThreshold = 500;
   private static readonly emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   private static readonly csvContentType = 'text/csv;charset=utf-8;';
   private static readonly xlsxContentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -682,16 +686,41 @@ export class DataQueryComponent implements OnInit {
     return columnDefs.map(columnDef => {
       const minWidth = this.getPreferredMinWidth(columnDef);
       const preferredWidth = this.getPreferredWidth(columnDef, minWidth);
+      const cellRendererSelector = this.getCellRendererSelector(columnDef);
 
       return {
         ...columnDef,
         ...(preferredWidth != null ? { width: preferredWidth } : {}),
+        ...(cellRendererSelector != null ? { cellRendererSelector } : {}),
         minWidth,
         wrapHeaderText: columnDef.wrapHeaderText ?? true,
         autoHeaderHeight: columnDef.autoHeaderHeight ?? true,
         headerTooltip: columnDef.headerTooltip ?? columnDef.headerName ?? columnDef.field
       };
     });
+  }
+
+  private getCellRendererSelector(columnDef: ColDef): ColDef['cellRendererSelector'] {
+    if (columnDef.cellRenderer != null) {
+      return columnDef.cellRendererSelector;
+    }
+
+    return (params: ICellRendererParams): CellRendererSelectorResult | undefined =>
+      columnDef.cellRendererSelector?.(params) ?? this.getLargeTextCellRenderer(params);
+  }
+
+  private getLargeTextCellRenderer(params: ICellRendererParams): CellRendererSelectorResult | undefined {
+    if (!this.isLargeTextValue(params.value)) {
+      return undefined;
+    }
+
+    return {
+      component: LargeTextCellRendererComponent
+    };
+  }
+
+  private isLargeTextValue(value: unknown): boolean {
+    return typeof value === 'string' && value.trim().length >= DataQueryComponent.largeTextCharacterThreshold;
   }
 
   private getSelectedRows(): any[] {
