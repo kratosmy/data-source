@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -94,6 +95,34 @@ class SecurityIntegrationTest {
     void unauthenticatedApiRequestReturns401InsteadOfLoginRedirect() throws Exception {
         mockMvc.perform(get("/api/user/cryptoassets"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unauthenticatedCurrentUserRequestReturns401InsteadOfLoginRedirect() throws Exception {
+        mockMvc.perform(get("/api/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unauthenticatedSessionStatusReportsAnonymousSessionWithoutRedirect() throws Exception {
+        mockMvc.perform(get("/api/auth/session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(false))
+                .andExpect(jsonPath("$.loginUrl").value("/api/auth/login"));
+    }
+
+    @Test
+    void authenticatedSessionStatusIncludesExpiryForFrontendReauthScheduling() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setMaxInactiveInterval(300);
+
+        mockMvc.perform(get("/api/auth/session")
+                        .session(session)
+                        .with(oauth2Login()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true))
+                .andExpect(jsonPath("$.expiresAt").isNotEmpty())
+                .andExpect(jsonPath("$.loginUrl").value("/api/auth/login"));
     }
 
     @Test

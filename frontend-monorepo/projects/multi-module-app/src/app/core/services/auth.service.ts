@@ -1,19 +1,27 @@
 import { HttpBackend, HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
 
-import { AuthConfig, AuthUser, BackendUserContext } from '../models/auth.models';
+import { AuthConfig, AuthSessionStatus, AuthUser, BackendUserContext } from '../models/auth.models';
 import { AuthConfigService } from './auth-config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
+  private static readonly sessionRefreshLeadMillis = 60_000;
+  private static readonly minimumSessionRefreshDelayMillis = 5_000;
+
   private readonly httpBackend = inject(HttpBackend);
   private readonly authConfigService = inject(AuthConfigService);
+  private readonly router = inject(Router);
   private readonly authHttp = new HttpClient(this.httpBackend);
 
   private readonly currentUserSubject = new BehaviorSubject<AuthUser | null>(null);
+  private sessionRefreshTimeoutId: number | undefined;
+  private loginRedirectInProgress = false;
+
   readonly currentUser$ = this.currentUserSubject.asObservable();
 
   async initialize(): Promise<void> {
@@ -23,8 +31,7 @@ export class AuthService {
 
   async login(returnUrl?: string): Promise<void> {
     const authConfig = await firstValueFrom(this.authConfigService.loadConfig());
-    const nextReturnUrl = this.normalizeReturnUrl(returnUrl || authConfig.defaultReturnUrl);
-    this.redirectBrowser(this.appendReturnUrl(authConfig.loginPath, nextReturnUrl));
+    this.redirectToLogin(authConfig.loginPath, returnUrl || authConfig.defaultReturnUrl);
   }
 
   logout(): void {
@@ -44,12 +51,37 @@ export class AuthService {
     try {
       const backendUserContext = await firstValueFrom(this.authHttp.get<BackendUserContext>(authConfig.mePath));
       this.currentUserSubject.next(this.mapBackendUserContext(backendUserContext));
+      await this.loadSessionStatus(authConfig);
     } catch (error) {
       this.clearCurrentUser();
 
       if (!(error instanceof HttpErrorResponse) || error.status !== 401) {
         console.error('Failed to load current user context', error);
       }
+    }
+  }
+
+  private async loadSessionStatus(authConfig: AuthConfig): Promise<void> {
+    try {
+      const sessionStatus = await firstValueFrom(this.authHttp.get<AuthSessionStatus>(authConfig.sessionPath));
+      if (!sessionStatus.authenticated) {
+        this.clearCurrentUser();
+        this.redirectToLogin(
+          sessionStatus.loginUrl || authConfig.loginPath,
+          this.router.url || authConfig.defaultReturnUrl
+        );
+        return;
+      }
+
+      this.scheduleSessionRefresh(authConfig, sessionStatus.expiresAt);
+    } catch (error) {
+      if (error instanceof HttpErrorResponse && error.status === 401) {
+        this.clearCurrentUser();
+        this.redirectToLogin(authConfig.loginPath, this.router.url || authConfig.defaultReturnUrl);
+        return;
+      }
+
+      console.error('Failed to load auth session status', error);
     }
   }
 
@@ -74,6 +106,43 @@ export class AuthService {
     return `${path}${separator}${query.toString()}`;
   }
 
+  private scheduleSessionRefresh(authConfig: AuthConfig, expiresAt: string | undefined): void {
+    this.clearSessionRefreshTimeout();
+
+    const expiresAtMillis = Date.parse(expiresAt || '');
+    if (Number.isNaN(expiresAtMillis)) {
+      return;
+    }
+
+    const refreshDelay = Math.max(
+      expiresAtMillis - Date.now() - AuthService.sessionRefreshLeadMillis,
+      AuthService.minimumSessionRefreshDelayMillis
+    );
+
+    this.sessionRefreshTimeoutId = window.setTimeout(() => {
+      void this.loadSessionStatus(authConfig);
+    }, refreshDelay);
+  }
+
+  private clearSessionRefreshTimeout(): void {
+    if (this.sessionRefreshTimeoutId === undefined) {
+      return;
+    }
+
+    window.clearTimeout(this.sessionRefreshTimeoutId);
+    this.sessionRefreshTimeoutId = undefined;
+  }
+
+  private redirectToLogin(loginPath: string, returnUrl: string | undefined): void {
+    if (this.loginRedirectInProgress) {
+      return;
+    }
+
+    this.loginRedirectInProgress = true;
+    const nextReturnUrl = this.normalizeReturnUrl(returnUrl);
+    this.redirectBrowser(this.appendReturnUrl(loginPath, nextReturnUrl));
+  }
+
   private normalizeReturnUrl(returnUrl: string | undefined): string {
     return this.normalizeString(returnUrl) || '/';
   }
@@ -96,6 +165,7 @@ export class AuthService {
   }
 
   private clearCurrentUser(): void {
+    this.clearSessionRefreshTimeout();
     this.currentUserSubject.next(null);
   }
 

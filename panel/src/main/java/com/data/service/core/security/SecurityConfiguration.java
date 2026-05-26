@@ -106,7 +106,7 @@ public class SecurityConfiguration {
                                                        OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService) throws Exception {
         http.securityMatcher("/api/user/**", "/api/me", "/api/auth/**", "/oauth2/**", "/login/oauth2/**", "/h2-console/**")
                 .authorizeHttpRequests(authorize -> {
-                    authorize.requestMatchers("/api/auth/login", "/api/auth/logout", "/oauth2/**", "/login/oauth2/**")
+                    authorize.requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/session", "/oauth2/**", "/login/oauth2/**")
                             .permitAll();
                     if (securityProperties.isH2ConsoleEnabled()) {
                         authorize.requestMatchers("/h2-console/**").permitAll();

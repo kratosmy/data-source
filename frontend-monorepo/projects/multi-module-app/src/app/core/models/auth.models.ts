@@ -26,9 +26,16 @@ export interface AuthUser {
 
 export interface AuthConfig {
   mePath: string;
+  sessionPath: string;
   loginPath: string;
   logoutPath: string;
   defaultReturnUrl?: string;
+}
+
+export interface AuthSessionStatus {
+  authenticated: boolean;
+  expiresAt?: string;
+  loginUrl?: string;
 }
 
 export interface BackendUserContext {

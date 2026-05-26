@@ -1,10 +1,10 @@
-import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, flushMicrotasks, TestBed, tick } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 
-import { AuthConfig, BackendUserContext } from '../models/auth.models';
+import { AuthConfig, AuthSessionStatus, BackendUserContext } from '../models/auth.models';
 import { AuthConfigService } from './auth-config.service';
 import { AuthService } from './auth.service';
 
@@ -12,9 +12,9 @@ describe('AuthService', () => {
   let service: AuthService;
   let httpTestingController: HttpTestingController | undefined;
   let authConfig: AuthConfig;
+  let routerSpy: jasmine.SpyObj<Router>;
   let redirectBrowserSpy: jasmine.Spy;
 
-  const routerSpy = jasmine.createSpyObj<Router>('Router', ['navigate', 'navigateByUrl']);
   const authConfigServiceStub = jasmine.createSpyObj<AuthConfigService>('AuthConfigService', [
     'loadConfig',
     'getConfig'
@@ -23,11 +23,13 @@ describe('AuthService', () => {
   beforeEach(() => {
     authConfig = {
       mePath: '/api/me',
+      sessionPath: '/api/auth/session',
       loginPath: '/api/auth/login',
       logoutPath: '/api/auth/logout',
       defaultReturnUrl: '/'
     };
 
+    routerSpy = jasmine.createSpyObj<Router>('Router', ['navigate', 'navigateByUrl'], { url: '/workspace' });
     authConfigServiceStub.loadConfig.and.callFake(() => of(authConfig));
     authConfigServiceStub.getConfig.and.callFake(() => authConfig);
 
@@ -57,6 +59,8 @@ describe('AuthService', () => {
     const userRequest = httpTestingController!.expectOne('/api/me');
     expect(userRequest.request.method).toBe('GET');
     userRequest.flush(createUserContext());
+    await flushAsyncWork();
+    flushSessionStatus();
 
     await expectAsync(initializePromise).toBeResolved();
     expect(service.currentUserValue).toEqual(
@@ -86,6 +90,49 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBeFalse();
   });
 
+  it('restarts backend login with the current route when the session status is no longer authenticated', async () => {
+    const initializePromise = service.initialize();
+    await flushAsyncWork();
+
+    httpTestingController!.expectOne('/api/me').flush(createUserContext());
+    await flushAsyncWork();
+
+    flushSessionStatus({ authenticated: false, loginUrl: '/api/auth/login' });
+
+    await expectAsync(initializePromise).toBeResolved();
+    expect(service.currentUserValue).toBeNull();
+    expect(redirectBrowserSpy).toHaveBeenCalledWith('/api/auth/login?returnUrl=%2Fworkspace');
+  });
+
+  it('checks the session before expiry and restarts login when the backend session is gone', fakeAsync(() => {
+    const initializePromise = service.initialize();
+    flushMicrotasks();
+
+    httpTestingController!.expectOne('/api/me').flush(createUserContext());
+    flushMicrotasks();
+
+    flushSessionStatus({
+      authenticated: true,
+      expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      loginUrl: '/api/auth/login'
+    });
+    flushMicrotasks();
+
+    let initialized = false;
+    void initializePromise.then(() => {
+      initialized = true;
+    });
+    flushMicrotasks();
+    expect(initialized).toBeTrue();
+
+    tick(60_000);
+    flushSessionStatus({ authenticated: false, loginUrl: '/api/auth/login' });
+    flushMicrotasks();
+
+    expect(service.currentUserValue).toBeNull();
+    expect(redirectBrowserSpy).toHaveBeenCalledWith('/api/auth/login?returnUrl=%2Fworkspace');
+  }));
+
   it('redirects login to the backend auth entrypoint', async () => {
     await service.login('/workspace');
 
@@ -97,6 +144,8 @@ describe('AuthService', () => {
     await flushAsyncWork();
 
     httpTestingController!.expectOne('/api/me').flush(createUserContext());
+    await flushAsyncWork();
+    flushSessionStatus();
     await expectAsync(initializePromise).toBeResolved();
     service.logout();
 
@@ -115,6 +164,12 @@ describe('AuthService', () => {
         xms: ['book-a', 'book-b']
       }
     };
+  }
+
+  function flushSessionStatus(status: AuthSessionStatus = { authenticated: true, loginUrl: '/api/auth/login' }): void {
+    const sessionRequest = httpTestingController!.expectOne('/api/auth/session');
+    expect(sessionRequest.request.method).toBe('GET');
+    sessionRequest.flush(status);
   }
 
   async function flushAsyncWork(): Promise<void> {

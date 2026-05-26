@@ -1,5 +1,6 @@
 {
   "mePath": "/api/me",
+  "sessionPath": "/api/auth/session",
   "loginPath": "/api/auth/login",
   "logoutPath": "/api/auth/logout",
   "defaultReturnUrl": "/",

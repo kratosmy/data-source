@@ -43,6 +43,7 @@ export class AuthConfigService {
     return {
       ...config,
       mePath: config.mePath || '/api/me',
+      sessionPath: config.sessionPath || '/api/auth/session',
       loginPath: config.loginPath || '/api/auth/login',
       logoutPath: config.logoutPath || '/api/auth/logout',
       defaultReturnUrl: config.defaultReturnUrl || '/'
